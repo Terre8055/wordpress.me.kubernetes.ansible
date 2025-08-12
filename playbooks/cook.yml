@@ -56,6 +56,41 @@
         state: restarted
         enabled: true
 
+    - name: Install dependencies for Kubernetes repo
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gpg
+        update_cache: yes
+        state: present
+
+    - name: Add Kubernetes apt key
+      ansible.builtin.shell: |
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      args:
+        creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+    - name: Add Kubernetes apt repository
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        content: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /"
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install kubelet and kubeadm
+      ansible.builtin.apt:
+        name:
+          - kubelet
+          - kubeadm
+        state: present
+
+    - name: Hold kubelet and kubeadm packages
+      ansible.builtin.shell: apt-mark hold kubelet kubeadm
+
     - name: Add host entries to /etc/hosts
       ansible.builtin.lineinfile:
         path: /etc/hosts
