@@ -1,0 +1,64 @@
+---
+- name: Prepare Ubuntu nodes for Kubernetes
+  hosts: all
+  become: true
+  tasks:
+
+    - name: Disable swap immediately
+      ansible.builtin.command: swapoff -a
+
+    - name: Remove swap file
+      ansible.builtin.file:
+        path: /swap.img
+        state: absent
+
+    - name: Remove swap entry from /etc/fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: 'swap'
+        state: absent
+
+    - name: Enable IP forwarding in sysctl.conf
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^net.ipv4.ip_forward'
+        line: 'net.ipv4.ip_forward = 1'
+        create: yes
+
+    - name: Apply sysctl changes
+      ansible.builtin.command: sysctl -p
+
+    - name: Install containerd
+      ansible.builtin.apt:
+        name: containerd
+        update_cache: yes
+        state: present
+
+    - name: Create containerd config directory
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+
+    - name: Generate default containerd config
+      ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+
+    - name: Enable SystemdCgroup in containerd config
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Restart containerd
+      ansible.builtin.service:
+        name: containerd
+        state: restarted
+        enabled: true
+
+    - name: Add host entries to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ hostvars[item].ansible_host }} {{ host_aliases[item] }}"
+        state: present
+      loop: "{{ groups['all'] }}"
