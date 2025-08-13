@@ -25,6 +25,13 @@
         line: 'net.ipv4.ip_forward = 1'
         create: yes
 
+    - name: Enable Hugepages Support
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.conf
+        regexp: '^vm.nr_hugepages'
+        line: 'vm.nr_hugepages = 1024'
+        create: yes
+
     - name: Apply sysctl changes
       ansible.builtin.command: sysctl -p
 
